@@ -130,9 +130,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // Image
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Image.asset(
+                          'assets/images/onboarding2.png',
+                          height: MediaQuery.of(context).size.height * 0.3,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 40),
+                      
                       // Header Text
                       const Text(
-                        "Let's get started",
+                        "Welcome back!",
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -141,116 +153,97 @@ class _LoginScreenState extends State<LoginScreen> {
                         textAlign: TextAlign.left,
                       ),
                       
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 8),
                       
                       const Text(
-                        "Bring your personal email, connect your work later",
+                        "Sign in to continue",
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 16,
                           color: AppColors.textSecondary,
                         ),
                         textAlign: TextAlign.left,
                       ),
                       
-                      const SizedBox(height: 40),
+                      const SizedBox(height: 32),
                       
                       // Email field
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "Mail ID",
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppColors.textSecondary,
+                      TextFormField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        style: const TextStyle(color: AppColors.textPrimary),
+                        decoration: const InputDecoration(
+                          hintText: 'Email',
+                          prefixIcon: Icon(Icons.email_outlined),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter your email';
+                          }
+                          return null;
+                        },
+                      ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Password field
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: !_isPasswordVisible,
+                        style: const TextStyle(color: AppColors.textPrimary),
+                        decoration: InputDecoration(
+                          hintText: 'Password',
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _isPasswordVisible
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
                             ),
+                            onPressed: _togglePasswordVisibility,
                           ),
-                          const SizedBox(height: 8),
-                          TextFormField(
-                            controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
-                            style: const TextStyle(color: AppColors.textPrimary),
-                            decoration: const InputDecoration(
-                              hintText: 'Enter your email',
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter your email';
-                              }
-                              return null;
-                            },
-                          ),
-                        ],
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter your password';
+                          }
+                          return null;
+                        },
                       ),
                       
                       const SizedBox(height: 24),
-                      
-                      // Password field
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "Password",
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          TextFormField(
-                            controller: _passwordController,
-                            obscureText: !_isPasswordVisible,
-                            style: const TextStyle(color: AppColors.textPrimary),
-                            decoration: InputDecoration(
-                              hintText: 'Enter your password',
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _isPasswordVisible ? Icons.visibility_off : Icons.visibility,
-                                  color: AppColors.textSecondary,
-                                ),
-                                onPressed: _togglePasswordVisibility,
-                              ),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter your password';
-                              }
-                              return null;
-                            },
-                          ),
-                        ],
-                      ),
-                      
-                      const SizedBox(height: 40),
                       
                       // Login button
                       BlocBuilder<AuthBloc, app_auth.AuthState>(
                         builder: (context, state) {
                           return ElevatedButton(
-                            onPressed: state.isLoading ? null : _submitForm,
+                            onPressed: state.status == app_auth.AuthStatus.loading
+                                ? null
+                                : _submitForm,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
-                              foregroundColor: AppColors.buttonText,
-                              disabledBackgroundColor: AppColors.primary.withOpacity(0.6),
-                              minimumSize: const Size(double.infinity, 50),
+                              foregroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(30),
+                                borderRadius: BorderRadius.circular(12),
                               ),
+                              elevation: 0,
                             ),
-                            child: state.isLoading
+                            child: state.status == app_auth.AuthStatus.loading
                                 ? const SizedBox(
                                     height: 20,
                                     width: 20,
                                     child: CircularProgressIndicator(
-                                      color: AppColors.buttonText,
                                       strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.black,
+                                      ),
                                     ),
                                   )
                                 : const Text(
-                                    'Login',
+                                    'Sign In',
                                     style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
                           );
@@ -264,23 +257,29 @@ class _LoginScreenState extends State<LoginScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Text(
-                            'New to rewind.ai? ',
-                            style: TextStyle(color: AppColors.textSecondary),
+                            "Don't have an account? ",
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                            ),
                           ),
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).push(
                                 MaterialPageRoute(
-                                  builder: (context) => const RegisterScreen(),
+                                  builder: (_) => const RegisterScreen(),
                                 ),
                               );
                             },
-                            child: Text(
-                              'Create Account',
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: const Size(0, 0),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Text(
+                              'Sign Up',
                               style: TextStyle(
                                 color: AppColors.primary,
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),

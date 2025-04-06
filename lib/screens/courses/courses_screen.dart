@@ -4,7 +4,6 @@ import 'package:playce/models/course_model.dart';
 import 'package:playce/screens/courses/course_detail_screen.dart';
 import 'package:playce/services/supabase_service.dart';
 import 'package:playce/widgets/course_card.dart';
-import 'package:playce/widgets/coming_soon.dart';
 
 class CoursesTab extends StatefulWidget {
   const CoursesTab({super.key});
@@ -21,7 +20,8 @@ class _CoursesTabState extends State<CoursesTab> {
   bool _hasError = false;
   String? _errorMessage;
   String _searchQuery = '';
-  final bool _showComingSoon = true;
+  final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -29,16 +29,14 @@ class _CoursesTabState extends State<CoursesTab> {
     _loadCourses();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadCourses() async {
-    if (_showComingSoon) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-      return;
-    }
-    
     if (mounted) {
       setState(() {
         _isLoading = true;
@@ -68,8 +66,6 @@ class _CoursesTabState extends State<CoursesTab> {
   }
 
   void _filterCourses(String query) {
-    if (_showComingSoon) return;
-    
     setState(() {
       _searchQuery = query;
       if (query.isEmpty) {
@@ -85,151 +81,165 @@ class _CoursesTabState extends State<CoursesTab> {
     });
   }
 
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Courses',
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.onBackground,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Learn from our curated video courses',
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      child: TextField(
+        controller: _searchController,
+        onChanged: _filterCourses,
+        decoration: InputDecoration(
+          hintText: 'Search courses...',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                    _filterCourses('');
+                  },
+                )
+              : null,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          filled: true,
+          fillColor: Theme.of(context).colorScheme.surface,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          isDense: true,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_hasError) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Failed to load courses',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _errorMessage!,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: _loadCourses,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Try Again'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_filteredCourses.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _searchQuery.isEmpty ? Icons.school_outlined : Icons.search_off,
+                size: 48,
+                color: Theme.of(context).colorScheme.onBackground.withOpacity(0.5),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _searchQuery.isEmpty
+                    ? 'No courses available yet'
+                    : 'No courses match "$_searchQuery"',
+                style: Theme.of(context).textTheme.titleLarge,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: _filteredCourses.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final course = _filteredCourses[index];
+        return CourseCard(
+          course: course,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => CourseDetailScreen(courseId: course.id),
+              ),
+            );
+          },
+          onAddLesson: () {},
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).colorScheme.background,
       body: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Courses',
-                    style: AppTextStyles.headline1,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Expand your skills with our video courses',
-                    style: AppTextStyles.bodyText1.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            // Search Bar
-            if (!_showComingSoon)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                child: TextField(
-                  onChanged: _filterCourses,
-                  decoration: InputDecoration(
-                    hintText: 'Search courses...',
-                    prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    filled: true,
-                    fillColor: AppColors.surface,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                  ),
-                  style: AppTextStyles.bodyText2,
-                ),
-              ),
-            
-            // Courses Grid or Coming Soon message
-            Expanded(
-              child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-                      ),
-                    )
-                  : _showComingSoon
-                      ? const ComingSoonWidget(
-                          title: 'Courses Coming Soon!',
-                          message: 'We\'re preparing amazing educational content for you. Check back soon for exciting courses and tutorials!',
-                        )
-                      : _hasError
-                          ? Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    Icons.error_outline,
-                                    color: AppColors.error,
-                                    size: 48,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    'Failed to load courses',
-                                    style: AppTextStyles.bodyText1,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  if (_errorMessage != null)
-                                    Text(
-                                      _errorMessage!,
-                                      style: AppTextStyles.caption.copyWith(
-                                        color: AppColors.textSecondary,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  const SizedBox(height: 16),
-                                  ElevatedButton(
-                                    onPressed: _loadCourses,
-                                    child: const Text('Retry'),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : _filteredCourses.isEmpty
-                              ? Center(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        _searchQuery.isEmpty ? Icons.school_outlined : Icons.search_off,
-                                        color: AppColors.textSecondary,
-                                        size: 48,
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        _searchQuery.isEmpty
-                                            ? 'No courses available yet'
-                                            : 'No courses match "$_searchQuery"',
-                                        style: AppTextStyles.bodyText1,
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              : RefreshIndicator(
-                                  onRefresh: _loadCourses,
-                                  color: AppColors.primary,
-                                  child: GridView.builder(
-                                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: 2,
-                                      childAspectRatio: 0.75,
-                                      crossAxisSpacing: 16,
-                                      mainAxisSpacing: 16,
-                                    ),
-                                    itemCount: _filteredCourses.length,
-                                    itemBuilder: (context, index) {
-                                      final course = _filteredCourses[index];
-                                      return CourseCard(
-                                        course: course,
-                                        onTap: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) => CourseDetailScreen(courseId: course.id),
-                                            ),
-                                          );
-                                        },
-                                      );
-                                    },
-                                  ),
-                                ),
-            ),
+            _buildHeader(),
+            _buildSearchBar(),
+            Expanded(child: _buildContent()),
           ],
         ),
       ),

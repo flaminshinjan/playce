@@ -444,102 +444,155 @@ class SupabaseService {
   // Course methods
   Future<List<CourseModel>> getCourses() async {
     try {
-      _logger.i('GET_COURSES', 'Fetching courses');
+      _logger.i('GET_COURSES', 'Fetching all courses');
       
-      final data = await _supabaseClient
+      final response = await _supabaseClient
           .from(SupabaseConstants.coursesTable)
-          .select()
+          .select('*, ${SupabaseConstants.lessonsTable}(*)')
           .order('created_at', ascending: false);
       
-      final courses = data.map<CourseModel>((json) => CourseModel.fromJson(json)).toList();
-      
-      _logger.i('GET_COURSES', 'Fetched ${courses.length} courses');
-      return courses;
+      return (response as List).map((course) => CourseModel.fromJson(course)).toList();
     } catch (e) {
       _logger.e('GET_COURSES', 'Error fetching courses', e);
-      rethrow;
+      return [];
     }
   }
   
-  Future<CourseModel> getCourseById(String courseId) async {
+  Future<CourseModel?> getCourseById(String courseId) async {
     try {
-      _logger.i('GET_COURSE_BY_ID', 'Fetching course: $courseId');
+      _logger.i('GET_COURSE', 'Fetching course with id: $courseId');
       
-      final data = await _supabaseClient
+      final response = await _supabaseClient
           .from(SupabaseConstants.coursesTable)
-          .select()
+          .select('*, ${SupabaseConstants.lessonsTable}(*)')
           .eq('id', courseId)
           .single();
       
-      final courseData = CourseModel.fromJson(data);
-      
-      // Fetch lessons for this course
-      final lessonsData = await _supabaseClient
-          .from(SupabaseConstants.lessonsTable)
-          .select()
-          .eq('course_id', courseId)
-          .order('order', ascending: true);
-      
-      final lessons = lessonsData.map<LessonModel>((json) => LessonModel.fromJson(json)).toList();
-      
-      _logger.i('GET_COURSE_BY_ID', 'Fetched course with ${lessons.length} lessons');
-      return courseData.copyWith(lessons: lessons, totalLessons: lessons.length);
+      return CourseModel.fromJson(response);
     } catch (e) {
-      _logger.e('GET_COURSE_BY_ID', 'Error fetching course by id', e);
-      rethrow;
+      _logger.e('GET_COURSE', 'Error fetching course', e);
+      return null;
     }
   }
   
-  Future<CourseModel> createCourse(CourseModel course) async {
+  Future<CourseModel?> createCourse(CourseModel course) async {
     try {
-      _logger.i('CREATE_COURSE', 'Creating new course: ${course.title}');
+      _logger.i('CREATE_COURSE', 'Creating course with title: ${course.title}');
       
-      final data = await _supabaseClient
+      final response = await _supabaseClient
           .from(SupabaseConstants.coursesTable)
           .insert(course.toJson())
-          .select()
+          .select('*, ${SupabaseConstants.lessonsTable}(*)')
           .single();
       
-      _logger.i('CREATE_COURSE', 'Created course with id: ${data['id']}');
-      return CourseModel.fromJson(data);
+      return CourseModel.fromJson(response);
     } catch (e) {
       _logger.e('CREATE_COURSE', 'Error creating course', e);
       rethrow;
     }
   }
   
-  Future<LessonModel> createLesson(LessonModel lesson) async {
+  Future<LessonModel?> addLesson(LessonModel lesson) async {
     try {
-      _logger.i('CREATE_LESSON', 'Creating new lesson: ${lesson.title}');
+      _logger.i('ADD_LESSON', 'Adding lesson to course: ${lesson.courseId}');
       
-      final data = await _supabaseClient
+      final response = await _supabaseClient
           .from(SupabaseConstants.lessonsTable)
           .insert(lesson.toJson())
           .select()
           .single();
       
-      _logger.i('CREATE_LESSON', 'Created lesson with id: ${data['id']}');
-      return LessonModel.fromJson(data);
+      // Update total_lessons count in the course
+      await _supabaseClient
+          .from(SupabaseConstants.coursesTable)
+          .update({
+            'total_lessons': await _getLessonCount(lesson.courseId),
+          })
+          .eq('id', lesson.courseId);
+      
+      return LessonModel.fromJson(response);
     } catch (e) {
-      _logger.e('CREATE_LESSON', 'Error creating lesson', e);
+      _logger.e('ADD_LESSON', 'Error adding lesson', e);
       rethrow;
     }
   }
   
-  Future<LessonModel> getLessonById(String lessonId) async {
+  Future<int> _getLessonCount(String courseId) async {
+    final response = await _supabaseClient
+        .from(SupabaseConstants.lessonsTable)
+        .select('id')
+        .eq('course_id', courseId);
+    
+    return (response as List).length;
+  }
+  
+  Future<void> updateCourse(CourseModel course) async {
     try {
-      _logger.i('GET_LESSON_BY_ID', 'Fetching lesson: $lessonId');
+      _logger.i('UPDATE_COURSE', 'Updating course: ${course.id}');
       
-      final data = await _supabaseClient
-          .from(SupabaseConstants.lessonsTable)
-          .select()
-          .eq('id', lessonId)
-          .single();
-      
-      _logger.i('GET_LESSON_BY_ID', 'Fetched lesson: ${data['title']}');
-      return LessonModel.fromJson(data);
+      await _supabaseClient
+          .from(SupabaseConstants.coursesTable)
+          .update(course.toJson())
+          .eq('id', course.id);
     } catch (e) {
-      _logger.e('GET_LESSON_BY_ID', 'Error fetching lesson by id', e);
+      _logger.e('UPDATE_COURSE', 'Error updating course', e);
+      rethrow;
+    }
+  }
+  
+  Future<void> updateLesson(LessonModel lesson) async {
+    try {
+      _logger.i('UPDATE_LESSON', 'Updating lesson: ${lesson.id}');
+      
+      await _supabaseClient
+          .from(SupabaseConstants.lessonsTable)
+          .update(lesson.toJson())
+          .eq('id', lesson.id);
+    } catch (e) {
+      _logger.e('UPDATE_LESSON', 'Error updating lesson', e);
+      rethrow;
+    }
+  }
+  
+  Future<void> deleteCourse(String courseId) async {
+    try {
+      _logger.i('DELETE_COURSE', 'Deleting course: $courseId');
+      
+      // Delete all lessons first
+      await _supabaseClient
+          .from(SupabaseConstants.lessonsTable)
+          .delete()
+          .eq('course_id', courseId);
+      
+      // Then delete the course
+      await _supabaseClient
+          .from(SupabaseConstants.coursesTable)
+          .delete()
+          .eq('id', courseId);
+    } catch (e) {
+      _logger.e('DELETE_COURSE', 'Error deleting course', e);
+      rethrow;
+    }
+  }
+  
+  Future<void> deleteLesson(String lessonId, String courseId) async {
+    try {
+      _logger.i('DELETE_LESSON', 'Deleting lesson: $lessonId');
+      
+      await _supabaseClient
+          .from(SupabaseConstants.lessonsTable)
+          .delete()
+          .eq('id', lessonId);
+      
+      // Update total_lessons count in the course
+      await _supabaseClient
+          .from(SupabaseConstants.coursesTable)
+          .update({
+            'total_lessons': await _getLessonCount(courseId),
+          })
+          .eq('id', courseId);
+    } catch (e) {
+      _logger.e('DELETE_LESSON', 'Error deleting lesson', e);
       rethrow;
     }
   }

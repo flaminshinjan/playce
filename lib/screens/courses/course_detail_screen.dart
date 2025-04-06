@@ -258,41 +258,43 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
   }
 
   Widget _buildLessonTile(LessonModel lesson, int index) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-      ),
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: InkWell(
         onTap: () {
-         
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => LessonScreen(
+                courseId: widget.courseId,
+                lesson: lesson,
+                isLastLesson: index == (_course?.lessons?.length ?? 0) - 1,
+              ),
+            ),
+          );
         },
-        borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              // Lesson Number
               Container(
-                height: 40,
                 width: 40,
+                height: 40,
                 decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 child: Center(
                   child: Text(
                     '${index + 1}',
-                    style: AppTextStyles.bodyText1.copyWith(
-                      color: AppColors.buttonText,
-                      fontWeight: FontWeight.bold,
+                    style: AppTextStyles.headline3.copyWith(
+                      color: AppColors.primary,
+                      fontSize: 18,
                     ),
                   ),
                 ),
               ),
               const SizedBox(width: 16),
-              // Lesson Info
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,35 +309,36 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                       const SizedBox(height: 4),
                       Text(
                         lesson.description!,
-                        style: AppTextStyles.caption.copyWith(
+                        style: AppTextStyles.bodyText2.copyWith(
                           color: AppColors.textSecondary,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
-                    const SizedBox(height: 4),
-                    Text(
-                      _formatDuration(lesson.duration),
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.primary,
-                      ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.play_circle_outline,
+                          size: 16,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${(lesson.duration / 60).ceil()} min',
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              // Play Button
-              Container(
-                height: 36,
-                width: 36,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.play_arrow,
-                  color: AppColors.primary,
-                ),
+              const Icon(
+                Icons.chevron_right,
+                color: AppColors.primary,
               ),
             ],
           ),

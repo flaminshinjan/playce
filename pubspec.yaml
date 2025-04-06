@@ -33,7 +33,7 @@ dependencies:
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
+  cupertino_icons: ^1.0.2
   
   # State management
   flutter_bloc: ^8.1.4
@@ -47,16 +47,20 @@ dependencies:
   cached_network_image: ^3.3.1
   flutter_svg: ^2.0.10+1
   image_picker: ^1.0.7
-  video_player: ^2.8.3
+  video_player: ^2.9.3
   chewie: ^1.7.5
+  pod_player: ^0.2.1
   
   # Utilities
   intl: ^0.19.0
   flutter_secure_storage: ^9.0.0
   path_provider: ^2.1.2
-  uuid: ^4.2.2
+  uuid: ^4.3.3
   timeago: ^3.6.1
   url_launcher: ^6.2.5
+  youtube_player_flutter: ^9.1.1
+  shared_preferences: ^2.5.3
+  smooth_page_indicator: ^1.1.0
 
 dev_dependencies:
   flutter_test:
@@ -68,6 +72,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -87,10 +92,10 @@ flutter:
     - assets/videos/
 
   # An image asset can refer to one or more resolution-specific "variants", see
-  # https://flutter.dev/to/resolution-aware-images
+  # https://flutter.dev/assets-and-images/#resolution-aware
 
   # For details regarding adding assets from package dependencies, see
-  # https://flutter.dev/to/asset-from-package
+  # https://flutter.dev/assets-and-images/#from-packages
 
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a
@@ -111,3 +116,11 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/icon.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/icon.png"
+  min_sdk_android: 21

@@ -39,14 +39,26 @@ class _HomeScreenState extends State<HomeScreen> {
     
     return Scaffold(
       body: _screens[_currentIndex],
-      extendBody: true, // Allow content to extend behind the navigation bar
-      bottomNavigationBar: CustomNavBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          border: Border(
+            top: BorderSide(
+              color: Colors.grey.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+        ),
+        child: SafeArea(
+          child: CustomNavBar(
+            currentIndex: _currentIndex,
+            onTap: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+          ),
+        ),
       ),
     );
   }
@@ -113,20 +125,8 @@ class _CustomNavBarState extends State<CustomNavBar> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 75, // Increased height slightly to accommodate content
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12), // Reduced bottom margin
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
+    return SizedBox(
+      height: 56,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
@@ -142,87 +142,63 @@ class _CustomNavBarState extends State<CustomNavBar> {
   Widget _buildNavItem(int index, IconData icon, IconData activeIcon, String label, [int badgeCount = 0]) {
     final isSelected = widget.currentIndex == index;
     
-    return GestureDetector(
+    return InkWell(
       onTap: () {
         widget.onTap(index);
-        // If we're tapping the Messages tab, reset the unread count
         if (index == 2 && _unreadCount > 0) {
           setState(() {
             _unreadCount = 0;
           });
         }
       },
-      behavior: HitTestBehavior.opaque,
       child: SizedBox(
-        height: 56, // Increased height to accommodate contents
         width: 70,
         child: Stack(
+          alignment: Alignment.center,
           children: [
             Column(
-              mainAxisSize: MainAxisSize.min, // Use minimal space
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeInOut,
-                  height: 32, // Reduced height slightly
-                  width: 32, // Reduced width slightly
-                  decoration: BoxDecoration(
-                    color: isSelected ? AppColors.primary.withOpacity(0.2) : Colors.transparent,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    isSelected ? activeIcon : icon,
-                    color: isSelected ? AppColors.primary : AppColors.textSecondary,
-                    size: 20, // Reduced size slightly
-                  ),
+                Stack(
+                  children: [
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: Icon(
+                        isSelected ? activeIcon : icon,
+                        key: ValueKey(isSelected),
+                        color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                        size: 24,
+                      ),
+                    ),
+                    if (badgeCount > 0)
+                      Positioned(
+                        right: -6,
+                        top: -2,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 8,
+                            minHeight: 8,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-                const SizedBox(height: 2), // Minimal spacing
+                const SizedBox(height: 4),
                 Text(
                   label,
                   style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontSize: 12,
                     color: isSelected ? AppColors.primary : AppColors.textSecondary,
-                  ),
-                ),
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  height: 2, // Smaller height
-                  width: isSelected ? 16 : 0, // Smaller width
-                  margin: const EdgeInsets.only(top: 1), // Minimal margin
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(1),
+                    fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
                   ),
                 ),
               ],
             ),
-            if (badgeCount > 0)
-              Positioned(
-                right: 8,
-                top: 2,
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                  ),
-                  constraints: const BoxConstraints(
-                    minWidth: 14,
-                    minHeight: 14,
-                  ),
-                  child: Text(
-                    badgeCount > 9 ? '9+' : badgeCount.toString(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
           ],
         ),
       ),
@@ -283,15 +259,32 @@ class _FeedTabState extends State<FeedTab> {
       final userId = _supabaseService.getCurrentUserId();
       if (userId == null) return;
 
+      // Update UI state immediately
+      setState(() {
+        final index = _posts.indexWhere((p) => p.id == post.id);
+        if (index != -1) {
+          _posts[index] = post.copyWith(
+            isLiked: !post.isLiked,
+            likeCount: post.isLiked ? post.likeCount - 1 : post.likeCount + 1,
+          );
+        }
+      });
+
+      // Make API call
       if (post.isLiked) {
         await _supabaseService.unlikePost(post.id, userId);
       } else {
         await _supabaseService.likePost(post.id, userId);
       }
-      
-      // Refresh posts to get updated like status
-      _loadPosts();
     } catch (e) {
+      // Revert UI state on error
+      setState(() {
+        final index = _posts.indexWhere((p) => p.id == post.id);
+        if (index != -1) {
+          _posts[index] = post;  // Restore original state
+        }
+      });
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: ${e.toString()}')),
@@ -390,93 +383,6 @@ class _FeedTabState extends State<FeedTab> {
                   },
                   onRefresh: _loadPosts,
                 ),
-    );
-  }
-}
-
-class CoursesTab extends StatelessWidget {
-  const CoursesTab({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Courses',
-                    style: AppTextStyles.headline1,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Expand your skills with our video courses',
-                    style: AppTextStyles.bodyText1.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            // Coming Soon message
-            Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Rocket/launch icon with animation
-                    Container(
-                      width: 180,
-                      height: 180,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.rocket_launch,
-                        size: 100,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    
-                    // Title
-                    Text(
-                      'Courses Coming Soon!',
-                      style: AppTextStyles.headline2.copyWith(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Message
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32.0),
-                      child: Text(
-                        'We\'re preparing amazing educational content for you. Check back soon for exciting courses and tutorials!',
-                        style: AppTextStyles.bodyText1.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

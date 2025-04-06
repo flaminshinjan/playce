@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:playce/constants/app_theme.dart';
 import 'package:playce/models/post_model.dart';
+import 'package:playce/models/user_model.dart';
 import 'package:playce/services/supabase_service.dart';
 import 'package:uuid/uuid.dart';
 
@@ -126,124 +127,219 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Create Post'),
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Create Post',
+          style: AppTextStyles.headline3,
+        ),
         actions: [
-          TextButton(
-            onPressed: _isUploading ? null : _createPost,
-            child: _isUploading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: ElevatedButton(
+              onPressed: _isUploading ? null : _createPost,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+              ),
+              child: _isUploading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text(
+                      'Share',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black,
+                      ),
                     ),
-                  )
-                : const Text(
-                    'Post',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+            ),
           ),
         ],
       ),
       body: Form(
         key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Caption field
-              TextFormField(
-                controller: _captionController,
-                maxLines: 5,
-                maxLength: 500,
-                decoration: const InputDecoration(
-                  hintText: 'What would you like to share?',
-                  border: InputBorder.none,
-                ),
-                validator: (value) {
-                  if ((value == null || value.isEmpty) && _selectedImage == null) {
-                    return 'Please enter some text or add an image';
-                  }
-                  return null;
-                },
-              ),
-              
-              const Divider(),
-              
-              // Image preview if selected
-              if (_selectedImage != null)
-                Stack(
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8.0),
-                      child: Image.file(
-                        _selectedImage!,
-                        width: double.infinity,
-                        height: 250,
-                        fit: BoxFit.cover,
+                    // User info section
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          FutureBuilder<UserModel?>(
+                            future: _supabaseService.getUserProfile(_supabaseService.getCurrentUserId() ?? ''),
+                            builder: (context, snapshot) {
+                              return CircleAvatar(
+                                radius: 20,
+                                backgroundImage: NetworkImage(
+                                  snapshot.data?.avatarUrl ?? 'https://via.placeholder.com/40',
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 12),
+                          FutureBuilder<UserModel?>(
+                            future: _supabaseService.getUserProfile(_supabaseService.getCurrentUserId() ?? ''),
+                            builder: (context, snapshot) {
+                              return Text(
+                                snapshot.data?.username ?? 'Anonymous',
+                                style: AppTextStyles.bodyText1.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                       ),
                     ),
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedImage = null;
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: Colors.black54,
-                            shape: BoxShape.circle,
+
+                    // Caption field
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: TextFormField(
+                        controller: _captionController,
+                        maxLines: null,
+                        maxLength: 500,
+                        style: AppTextStyles.bodyText1,
+                        decoration: InputDecoration(
+                          hintText: 'What would you like to share?',
+                          hintStyle: AppTextStyles.bodyText1.copyWith(
+                            color: AppColors.textSecondary,
                           ),
-                          child: const Icon(
-                            Icons.close,
-                            color: Colors.white,
-                            size: 20,
+                          border: InputBorder.none,
+                          counterText: '',
+                        ),
+                        validator: (value) {
+                          if ((value == null || value.isEmpty) && _selectedImage == null) {
+                            return 'Please enter some text or add an image';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    
+                    // Image preview if selected
+                    if (_selectedImage != null)
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 10,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.file(
+                                  _selectedImage!,
+                                  width: double.infinity,
+                                  height: 300,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: Material(
+                                  color: Colors.black.withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: InkWell(
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedImage = null;
+                                      });
+                                    },
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(8),
+                                      child: Icon(
+                                        Icons.close,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                    ),
                   ],
                 ),
-              
-              const SizedBox(height: 16),
-              
-              // Image picker options
-              if (_selectedImage == null)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: _pickImage,
-                      icon: const Icon(Icons.photo_library),
-                      label: const Text('Gallery'),
-                      style: ElevatedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        backgroundColor: AppColors.primary,
-                      ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: _takePhoto,
-                      icon: const Icon(Icons.camera_alt),
-                      label: const Text('Camera'),
-                      style: ElevatedButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        backgroundColor: AppColors.secondary,
-                      ),
-                    ),
-                  ],
+              ),
+            ),
+            
+            // Bottom actions bar
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                border: Border(
+                  top: BorderSide(
+                    color: Colors.grey.withOpacity(0.2),
+                  ),
                 ),
-            ],
-          ),
+              ),
+              padding: EdgeInsets.fromLTRB(
+                16,
+                16,
+                16,
+                16 + MediaQuery.of(context).padding.bottom,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Add to your post',
+                      style: AppTextStyles.bodyText2.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.photo_library_outlined),
+                    color: AppColors.primary,
+                    onPressed: _pickImage,
+                    tooltip: 'Choose from gallery',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.camera_alt_outlined),
+                    color: AppColors.primary,
+                    onPressed: _takePhoto,
+                    tooltip: 'Take a photo',
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -16,12 +16,31 @@ class _ChatListScreenState extends State<ChatListScreen> {
   final _supabaseService = SupabaseService();
   
   List<UserModel> _users = [];
+  List<UserModel> _filteredUsers = [];
   bool _isLoading = true;
+  final _searchController = TextEditingController();
   
   @override
   void initState() {
     super.initState();
     _loadUsers();
+    _searchController.addListener(_filterUsers);
+  }
+  
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _filterUsers() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      _filteredUsers = _users.where((user) {
+        final username = user.username?.toLowerCase() ?? '';
+        return username.contains(query);
+      }).toList();
+    });
   }
   
   Future<void> _loadUsers() async {
@@ -32,12 +51,12 @@ class _ChatListScreenState extends State<ChatListScreen> {
     }
     
     try {
-      // Get all users for now - in a real app, you'd get only users with conversations
       final users = await _supabaseService.getAllUsers();
       
       if (mounted) {
         setState(() {
           _users = users;
+          _filteredUsers = users;
           _isLoading = false;
         });
       }
@@ -47,7 +66,10 @@ class _ChatListScreenState extends State<ChatListScreen> {
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading chats: ${e.toString()}')),
+          SnackBar(
+            content: Text('Error loading chats: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
     }
@@ -56,30 +78,99 @@ class _ChatListScreenState extends State<ChatListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Messages'),
+        elevation: 0,
+        backgroundColor: AppColors.background,
+        title: Text(
+          'Messages',
+          style: AppTextStyles.headline2.copyWith(
+            fontSize: 24,
+            color: AppColors.textPrimary,
+          ),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: AppColors.primary),
             onPressed: _loadUsers,
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _users.isEmpty
-              ? _buildEmptyState()
-              : RefreshIndicator(
-                  onRefresh: _loadUsers,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _users.length,
-                    separatorBuilder: (_, __) => const Divider(),
-                    itemBuilder: (context, index) {
-                      return _buildUserListItem(_users[index]);
-                    },
+      body: GestureDetector(
+        onTap: () {
+          // Dismiss keyboard when tapping outside
+          FocusScope.of(context).unfocus();
+        },
+        child: Column(
+          children: [
+            // Search field
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search users...',
+                  hintStyle: AppTextStyles.bodyText2.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    color: AppColors.primary,
+                    size: 22,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                  filled: true,
+                  fillColor: AppColors.surface,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
                   ),
                 ),
+                style: AppTextStyles.bodyText1,
+                textInputAction: TextInputAction.search,
+                onChanged: (_) => _filterUsers(),
+              ),
+            ),
+            
+            // User list
+            Expanded(
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                      ),
+                    )
+                  : _filteredUsers.isEmpty
+                      ? _buildEmptyState()
+                      : RefreshIndicator(
+                          color: AppColors.primary,
+                          onRefresh: _loadUsers,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: _filteredUsers.length,
+                            itemBuilder: (context, index) {
+                              return _buildUserListItem(_filteredUsers[index]);
+                            },
+                          ),
+                        ),
+            ),
+          ],
+        ),
+      ),
     );
   }
   
@@ -88,25 +179,47 @@ class _ChatListScreenState extends State<ChatListScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.chat_bubble_outline,
-            size: 64,
-            color: Colors.grey,
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'No conversations yet',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Your conversations will appear here',
-            style: TextStyle(color: Colors.grey),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.chat_bubble_outline_rounded,
+              size: 48,
+              color: AppColors.primary,
+            ),
           ),
           const SizedBox(height: 24),
+          Text(
+            'No conversations yet',
+            style: AppTextStyles.headline3.copyWith(
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Start chatting with other users',
+            style: AppTextStyles.bodyText2.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 32),
           ElevatedButton.icon(
             onPressed: _loadUsers,
-            icon: const Icon(Icons.refresh),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.buttonText,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            icon: const Icon(Icons.refresh_rounded),
             label: const Text('Refresh'),
           ),
         ],
@@ -121,26 +234,97 @@ class _ChatListScreenState extends State<ChatListScreen> {
       return const SizedBox.shrink();
     }
     
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundImage: user.avatarUrl != null
-            ? NetworkImage(user.avatarUrl!)
-            : null,
-        child: user.avatarUrl == null
-            ? Text(user.username?.substring(0, 1).toUpperCase() ?? '?')
-            : null,
-      ),
-      title: Text(user.username ?? 'User ${user.id.substring(0, 5)}'),
-      subtitle: const Text('Tap to send a message'),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ChatScreen(recipient: user),
+    final username = user.username ?? 'User ${user.id.substring(0, 5)}';
+    final initial = username.substring(0, 1).toUpperCase();
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-        );
-      },
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ChatScreen(recipient: user),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Hero(
+                  tag: 'avatar_${user.id}',
+                  child: Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.primary.withOpacity(0.1),
+                      image: user.avatarUrl != null
+                          ? DecorationImage(
+                              image: NetworkImage(user.avatarUrl!),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    child: user.avatarUrl == null
+                        ? Center(
+                            child: Text(
+                              initial,
+                              style: AppTextStyles.headline3.copyWith(
+                                color: AppColors.primary,
+                                fontSize: 20,
+                              ),
+                            ),
+                          )
+                        : null,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        username,
+                        style: AppTextStyles.bodyText1.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Tap to start chatting',
+                        style: AppTextStyles.bodyText2.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 16,
+                  color: AppColors.primary,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 } 
